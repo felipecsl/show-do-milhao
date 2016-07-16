@@ -1,3 +1,7 @@
+module Lib
+    ( libMain
+    ) where
+
 import Prelude hiding
     ( lines
     , concat
@@ -85,11 +89,10 @@ parseSections bs =
         answers = last groupedQuestionListBySection
     in map (map listToQuestion) (init groupedQuestionListBySection)
 
-main :: IO ()
-main = do
+libMain :: IO ()
+libMain = do
     h <- openFile "questions.txt" ReadMode
     bs <- hGetContents h
-    conv <- open "utf-8" Nothing
     let sections = parseSections bs
     let easy = sections !! 0
     let medium = sections !! 1
