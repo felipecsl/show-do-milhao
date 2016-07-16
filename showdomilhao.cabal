@@ -1,0 +1,31 @@
+name: showdomilhao
+version: 1.0.0.0
+cabal-version: >=1.6
+build-type: Simple
+license: MIT
+license-file: LICENSE
+copyright: (c) Felipe Lima
+maintainer: Felipe Lima
+stability: stable
+homepage: https://github.com/foo/bar
+bug-reports: https://github.com/foo/bar/issues
+synopsis: Lorem Ipsum
+description: Lorem Ipsum
+category: Web
+author: Felipe Lima
+data-dir: ""
+
+source-repository head
+    type: git
+    location: https://github.com/foo/bar
+
+executable showdomilhao
+    build-depends: base >=4.2 && <5
+                , MissingH
+                , split
+                , text
+                , bytestring
+                , text-icu
+    main-is: Main.hs
+    buildable: True
+    hs-source-dirs: src
