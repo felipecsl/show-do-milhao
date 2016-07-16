@@ -16,7 +16,6 @@ import           Data.Word             (Word8 (..))
 import           Prelude               hiding (concat, lines)
 import           System.IO             (IOMode (..), openFile)
 
-
 data Question = Question {
       statement :: ByteString
     , options   :: [ByteString]

@@ -1,12 +1,12 @@
 name:                showdomilhao
 version:             0.1.0.0
-synopsis:            Initial project template from stack
+synopsis:            A command line Show do Milhão app
 description:         Please see README.md
-homepage:            https://github.com/githubuser/showdomilhao#readme
-license:             BSD3
+homepage:            https://github.com/felipecsl/show-do-milhao#readme
+license:             Apache v2
 license-file:        LICENSE
-author:              Author name here
-maintainer:          example@example.com
+author:              Felipe Lima
+maintainer:          felipe.lima@gmail.com
 copyright:           2016 Author name here
 category:            Web
 build-type:          Simple
@@ -43,4 +43,4 @@ test-suite showdomilhao-test
 
 source-repository head
   type:     git
-  location: https://github.com/githubuser/showdomilhao
+  location: https://github.com/felipecsl/show-do-milhao
