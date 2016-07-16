@@ -3,7 +3,7 @@ version:             0.1.0.0
 synopsis:            A command line Show do Milhão app
 description:         Please see README.md
 homepage:            https://github.com/felipecsl/show-do-milhao#readme
-license:             Apache v2
+license:             GPL
 license-file:        LICENSE
 author:              Felipe Lima
 maintainer:          felipe.lima@gmail.com
