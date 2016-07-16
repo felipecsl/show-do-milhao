@@ -25,7 +25,6 @@ Quem é a namorada do Mickey?
 4 OLÍVIA PALITO
 
 Qual é o personagem do folclore brasileiro que tem uma perna só?
-
 1 CUCA
 2 NEGRINHO DO PASTOREIO
 3 BOITATÁ
@@ -1804,6 +1803,8 @@ Como é chamada a gravura impressa sobre pranchas de madeira?
 2 LITOGRAFIA
 3 XILOGRAFIA
 4 SERIGRAFIA
+
+### Answers
 
 1 - 2
 2 - 2
