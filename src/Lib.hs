@@ -20,23 +20,23 @@ import           System.IO             (BufferMode (..), IOMode (..),
                                         hSetBuffering, openFile, stdin)
 
 data Question = Question {
-      statement :: ByteString
-    , options   :: [ByteString]
-    , answer    :: Int
+    statement :: ByteString
+  , options   :: [ByteString]
+  , answer    :: Int
 }
 
 data QuestionGroup = QuestionGroup {
-    difficulty  :: ByteString
-    , questions :: [Question]
+    difficulty :: ByteString
+  , questions  :: [Question]
 }
 
-data ProgramData = ProgramData {
-    groups   :: [QuestionGroup]
-    ,answers :: [ByteString]
-}
+type ProgramData = [QuestionGroup]
 
-mapInd :: (a -> Char -> c) -> [a] -> [c]
-mapInd f l = zipWith f l ['a'..]
+mapIndChar :: (a -> Char -> b) -> [a] -> [b]
+mapIndChar f l = zipWith f l ['a'..]
+
+mapInd :: (a -> Int -> b) -> [a] -> [b]
+mapInd f l = zipWith f l [0..]
 
 group :: Int -> [a] -> [[a]]
 group _ [] = []
@@ -49,31 +49,39 @@ byteStringToString s = do
     conv <- open "utf-8" Nothing
     return (T.unpack $ toUnicode conv s)
 
+byteStringToInt :: ByteString -> Int
+byteStringToInt s = read (unpack s) :: Int
+
+-- Takes a question and the index of the answer (0, 1, 2 or 3)
 presentQuestion :: Question -> IO Bool
 presentQuestion q = do
     let stmt = statement q
         opts = options q
-        correctAnswer = answer q
-        indexedOpts = mapInd (\x i -> Data.ByteString.concat ([singleton i] ++ [pack ") "] ++ [x])) opts
+        -- The answers are 1-indexed (instead of 0), so we need to subtract 1 to offset it
+        ans = answer q - 1
+        indexedOpts = mapIndChar (\x i -> Data.ByteString.concat ([singleton i] ++ [pack ") "] ++ [x])) opts
     byteStringToString stmt >>= putStrLn
     byteStringToString (intercalate (pack "\n") indexedOpts) >>= putStrLn
     putStrLn "Resposta? "
     answr <- getChar
     let maybeAnswer = elemIndex answr ['a'..]
-        didAnswerCorrectly = maybeAnswer == Just correctAnswer
+        didAnswerCorrectly = maybeAnswer == Just ans
     if didAnswerCorrectly
       then putStrLn "\nCerta resposta!\n"
-      else putStrLn ("Resposta errada. Sua resposta foi " ++ [answr])
+      else putStrLn ("\nResposta errada. Sua resposta foi " ++ [answr])
     return didAnswerCorrectly
 
 -- Converts an array of strings (with 5 elements) into a Question object
-listToQuestion :: [ByteString] -> Question
-listToQuestion (x:xs) = Question x xs 1
+listToQuestion :: (Int, [ByteString]) -> Question
+listToQuestion a =
+    let ans = fst a
+        (x:xs) = snd a
+    in Question x xs ans
 
 -- Builds a QuestionGroup based on a nested array of ByteStrings, where the head of each group
 -- is the header and the tail are the groups of questions (with 5 elements each)
-listToQuestionGroups :: [[ByteString]] -> QuestionGroup
-listToQuestionGroups xs = QuestionGroup (head $ head xs) (map listToQuestion (tail xs))
+listToQuestionGroups :: [Int] -> [[ByteString]] -> QuestionGroup
+listToQuestionGroups a xs = QuestionGroup (head $ head xs) (zipWith (curry listToQuestion) a (tail xs))
 
 -- Split an array using the function for selecting the delimiter. The resulting array includes
 -- the delimiter as the first item in the array. This is important because we need the headers for
@@ -89,6 +97,13 @@ splitWhen = split . keepDelimsL . whenElt
 questionGroup :: [ByteString] -> [[ByteString]]
 questionGroup (x:xs) = [x] : group 5 xs
 
+parseGroupsWithAnswers :: [Int] -> [[[ByteString]]] -> [QuestionGroup]
+parseGroupsWithAnswers a (x:xs) =
+    let totalQuestions = length x
+        thisGroup = listToQuestionGroups (take totalQuestions a) x
+        remainder = parseGroupsWithAnswers (drop totalQuestions a) xs
+    in thisGroup : remainder
+
 -- This array should have 4 items
 -- 1st item - [[ByteString]] of Easy questions
 -- 2nd item - [[ByteString]] of Medium questions
@@ -96,9 +111,9 @@ questionGroup (x:xs) = [x] : group 5 xs
 -- 4rd item - [[ByteString]] of answers - This needs to be flattened into a [ByteString] with concat
 buildProgramData :: [[[ByteString]]] -> ProgramData
 buildProgramData xs =
-    let answers = tail $ Prelude.concat (last xs)
-        groups = map (listToQuestionGroups . init) xs
-    in ProgramData groups answers
+    let answers = map byteStringToInt (tail $ Prelude.concat (last xs))
+        groups = parseGroupsWithAnswers answers (init xs)
+    in groups
 
 -- Takes a ByteString with the input file contents and parse it into a ProgramData object
 parseSections :: IO ByteString -> IO ProgramData
@@ -123,8 +138,9 @@ printQuestionGroup g = do
     byteStringToString (difficulty g) >>= putStrLn
     doWhileM presentQuestion (questions g)
 
-printQuestionGroups :: [QuestionGroup] -> IO ()
-printQuestionGroups (x:xs) = do
+printQuestionGroups :: ProgramData -> IO ()
+printQuestionGroups pd = do
+    let (x:xs) = pd
     res <- printQuestionGroup x
     when res $ printQuestionGroups xs
 
@@ -133,4 +149,4 @@ libMain = do
     -- We need to disable stdin buffering otherwise getChar won't work well
     hSetBuffering stdin NoBuffering
     let file = openFile "questions.txt" ReadMode >>= hGetContents
-    fmap groups (parseSections file) >>= printQuestionGroups
+    parseSections file >>= printQuestionGroups
