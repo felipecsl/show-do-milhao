@@ -91,5 +91,5 @@ libMain = do
     let easy = head sections
     let medium = sections !! 1
     let hard = sections !! 2
-    doWhileM presentQuestion easy
+    doWhileM presentQuestion (questions easy)
     return ()
