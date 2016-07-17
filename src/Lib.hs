@@ -62,7 +62,10 @@ presentQuestion q = do
 listToQuestion :: [ByteString] -> Question
 listToQuestion (x:xs) = Question x xs 1
 
-parseSections :: IO ByteString -> IO [[Question]]
+listToQuestionGroups :: String -> [Question] -> QuestionGroup
+listToQuestionGroups d = QuestionGroup (pack d)
+
+parseSections :: IO ByteString -> IO [QuestionGroup]
 parseSections bs =
     let nonEmptyString = filter (/= pack "")
         isSectionMarker = isPrefixOf (pack "###")
@@ -70,8 +73,9 @@ parseSections bs =
         allLines = fmap lines bs
         sections = fmap (filter (not . null) . splitWhen isSectionMarker) allLines
         groupedQuestionListBySection = fmap (map (questionGroup . nonEmptyString)) sections
+        l = listToQuestionGroups "easy" . map listToQuestion
         -- answers = last groupedQuestionListBySection
-    in fmap (map (map listToQuestion) . init) groupedQuestionListBySection
+    in fmap (map l . init) groupedQuestionListBySection
 
 doWhileM :: (a -> IO Bool) -> [a] -> IO ()
 doWhileM _ [] = return ()
