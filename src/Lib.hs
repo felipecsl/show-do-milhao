@@ -25,6 +25,11 @@ data Question = Question {
     , answer    :: Int
 }
 
+data QuestionGroup = QuestionGroup {
+    difficulty  :: ByteString
+    , questions :: [Question]
+}
+
 mapInd f l = zipWith f l ['a'..]
 
 group :: Int -> [a] -> [[a]]
@@ -57,16 +62,16 @@ presentQuestion q = do
 listToQuestion :: [ByteString] -> Question
 listToQuestion (x:xs) = Question x xs 1
 
-parseSections :: ByteString -> [[Question]]
+parseSections :: IO ByteString -> IO [[Question]]
 parseSections bs =
     let nonEmptyString = filter (/= pack "")
-        isSectionMarker = isPrefixOf $ pack "###"
+        isSectionMarker = isPrefixOf (pack "###")
         questionGroup = group 5
-        allLines = lines bs
-        sections = filter (not . null) $ splitWhen isSectionMarker allLines
-        groupedQuestionListBySection = map (questionGroup . nonEmptyString) sections
-        answers = last groupedQuestionListBySection
-    in map (map listToQuestion) (init groupedQuestionListBySection)
+        allLines = fmap lines bs
+        sections = fmap (filter (not . null) . splitWhen isSectionMarker) allLines
+        groupedQuestionListBySection = fmap (map (questionGroup . nonEmptyString)) sections
+        -- answers = last groupedQuestionListBySection
+    in fmap (map (map listToQuestion) . init) groupedQuestionListBySection
 
 doWhileM :: (a -> IO Bool) -> [a] -> IO ()
 doWhileM _ [] = return ()
@@ -77,9 +82,8 @@ doWhileM m (x:xs) = do
 libMain :: IO ()
 libMain = do
     hSetBuffering stdin NoBuffering
-    h <- openFile "questions.txt" ReadMode
-    bs <- hGetContents h
-    let sections = parseSections bs
+    let file = openFile "questions.txt" ReadMode >>= hGetContents
+    sections <- parseSections file
     let easy = head sections
     let medium = sections !! 1
     let hard = sections !! 2
