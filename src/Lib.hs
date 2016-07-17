@@ -15,7 +15,7 @@ import qualified Data.Text             as T
 import           Data.Text.ICU.Convert (open, toUnicode)
 import qualified Data.Text.IO          as T
 import           Data.Word             (Word8 (..))
-import           Prelude               hiding (concat, lines)
+import           Prelude               hiding (lines)
 import           System.IO             (BufferMode (..), IOMode (..),
                                         hSetBuffering, openFile, stdin)
 
@@ -28,6 +28,11 @@ data Question = Question {
 data QuestionGroup = QuestionGroup {
     difficulty  :: ByteString
     , questions :: [Question]
+}
+
+data ProgramData = ProgramData {
+    groups   :: [QuestionGroup]
+    ,answers :: [ByteString]
 }
 
 mapInd :: (a -> Char -> c) -> [a] -> [c]
@@ -49,7 +54,7 @@ presentQuestion q = do
     let stmt = statement q
         opts = options q
         correctAnswer = answer q
-        indexedOpts = mapInd (\x i -> concat ([singleton i] ++ [pack ") "] ++ [x])) opts
+        indexedOpts = mapInd (\x i -> Data.ByteString.concat ([singleton i] ++ [pack ") "] ++ [x])) opts
     byteStringToString stmt >>= putStrLn
     byteStringToString (intercalate (pack "\n") indexedOpts) >>= putStrLn
     putStrLn "Resposta? "
@@ -61,27 +66,49 @@ presentQuestion q = do
       else putStrLn ("Resposta errada. Sua resposta foi " ++ [answr])
     return didAnswerCorrectly
 
+-- Converts an array of strings (with 5 elements) into a Question object
 listToQuestion :: [ByteString] -> Question
 listToQuestion (x:xs) = Question x xs 1
 
+-- Builds a QuestionGroup based on a nested array of ByteStrings, where the head of each group
+-- is the header and the tail are the groups of questions (with 5 elements each)
 listToQuestionGroups :: [[ByteString]] -> QuestionGroup
 listToQuestionGroups xs = QuestionGroup (head $ head xs) (map listToQuestion (tail xs))
 
+-- Split an array using the function for selecting the delimiter. The resulting array includes
+-- the delimiter as the first item in the array. This is important because we need the headers for
+-- each question group (Facil, Medio and Dificil)
 splitWhen :: (a -> Bool) -> [a] -> [[a]]
 splitWhen = split . keepDelimsL . whenElt
 
+-- This groups questions in lists of 5 elements, where:
+-- 1st item is the question statement
+-- items 2, 3, 4 and 5 are the question possible answers (a, b, c or d)
+-- The list head is the title of the question group (either ### Facil, ### Medio or ### Dificil),
+-- so that is not included in the grouping
 questionGroup :: [ByteString] -> [[ByteString]]
 questionGroup (x:xs) = [x] : group 5 xs
 
-parseSections :: IO ByteString -> IO [QuestionGroup]
+-- This array should have 4 items
+-- 1st item - [[ByteString]] of Easy questions
+-- 2nd item - [[ByteString]] of Medium questions
+-- 3rd item - [[ByteString]] of Hard questions
+-- 4rd item - [[ByteString]] of answers - This needs to be flattened into a [ByteString] with concat
+buildProgramData :: [[[ByteString]]] -> ProgramData
+buildProgramData xs =
+    let answers = tail $ Prelude.concat (last xs)
+        groups = map (listToQuestionGroups . init) xs
+    in ProgramData groups answers
+
+-- Takes a ByteString with the input file contents and parse it into a ProgramData object
+parseSections :: IO ByteString -> IO ProgramData
 parseSections bs =
     let nonEmptyString = filter (/= pack "")
         isSectionMarker = isPrefixOf (pack "###")
         allLines = fmap lines bs
         sections = fmap (filter (not . null) . splitWhen isSectionMarker) allLines
         groupedQuestionListBySection = fmap (map (questionGroup . nonEmptyString)) sections
-        -- answers = last groupedQuestionListBySection
-    in fmap (map listToQuestionGroups . init) groupedQuestionListBySection
+    in fmap buildProgramData groupedQuestionListBySection
 
 doWhileM :: (a -> IO Bool) -> [a] -> IO ()
 doWhileM _ [] = return ()
@@ -97,9 +124,8 @@ libMain :: IO ()
 libMain = do
     hSetBuffering stdin NoBuffering
     let file = openFile "questions.txt" ReadMode >>= hGetContents
-    sections <- parseSections file
-    let easy = head sections
-    let medium = sections !! 1
-    let hard = sections !! 2
-    printQuestionGroup medium
+    progData <- parseSections file
+    let easy = head (groups progData)
+    print (answers progData)
+    printQuestionGroup easy
     return ()
