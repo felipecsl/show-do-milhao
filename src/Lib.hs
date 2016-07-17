@@ -2,6 +2,7 @@ module Lib
     ( libMain
     ) where
 
+import           Control.Monad         (when)
 import           Data.ByteString       (ByteString (..), concat, hGetContents,
                                         intercalate, isPrefixOf)
 import           Data.ByteString.Char8 (lines, pack, singleton, unpack)
@@ -67,15 +68,11 @@ parseSections bs =
         answers = last groupedQuestionListBySection
     in map (map listToQuestion) (init groupedQuestionListBySection)
 
-takeWhileM :: (a -> IO Bool) -> [a] -> IO [a]
-takeWhileM _ [] = return []
-takeWhileM m (x:xs) = do
+doWhileM :: (a -> IO Bool) -> [a] -> IO ()
+doWhileM _ [] = return ()
+doWhileM m (x:xs) = do
     res <- m x
-    if res
-      then do
-          rest <- takeWhileM m xs
-          return (x : rest)
-      else return [x]
+    when res $ doWhileM m xs
 
 libMain :: IO ()
 libMain = do
@@ -86,7 +83,5 @@ libMain = do
     let easy = head sections
     let medium = sections !! 1
     let hard = sections !! 2
-    takeWhileM presentQuestion easy
-    -- presentQuestion (head easy)
-    -- presentQuestion (easy !! 1)
+    doWhileM presentQuestion easy
     return ()

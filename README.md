@@ -1,4 +1,4 @@
-# Show do Milhão in Haskell
+# Show do Milhão
 
 This is a simple Show do Milhão style questions program that I built while trying to learn Haskell.
 
