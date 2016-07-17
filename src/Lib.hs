@@ -110,22 +110,27 @@ parseSections bs =
         groupedQuestionListBySection = fmap (map (questionGroup . nonEmptyString)) sections
     in fmap buildProgramData groupedQuestionListBySection
 
-doWhileM :: (a -> IO Bool) -> [a] -> IO ()
-doWhileM _ [] = return ()
+doWhileM :: (a -> IO Bool) -> [a] -> IO Bool
+doWhileM _ [] = return False
 doWhileM m (x:xs) = do
     res <- m x
-    when res $ doWhileM m xs
+    if res
+      then doWhileM m xs
+      else return False
 
+printQuestionGroup :: QuestionGroup -> IO Bool
 printQuestionGroup g = do
     byteStringToString (difficulty g) >>= putStrLn
     doWhileM presentQuestion (questions g)
 
+printQuestionGroups :: [QuestionGroup] -> IO ()
+printQuestionGroups (x:xs) = do
+    res <- printQuestionGroup x
+    when res $ printQuestionGroups xs
+
 libMain :: IO ()
 libMain = do
+    -- We need to disable stdin buffering otherwise getChar won't work well
     hSetBuffering stdin NoBuffering
     let file = openFile "questions.txt" ReadMode >>= hGetContents
-    progData <- parseSections file
-    let easy = head (groups progData)
-    print (answers progData)
-    printQuestionGroup easy
-    return ()
+    fmap groups (parseSections file) >>= printQuestionGroups
