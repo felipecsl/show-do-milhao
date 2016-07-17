@@ -8,7 +8,7 @@ import           Data.ByteString       (ByteString (..), concat, hGetContents,
 import           Data.ByteString.Char8 (lines, pack, singleton, unpack)
 import           Data.Char             (digitToInt, ord)
 import           Data.List             (elemIndex)
-import           Data.List.Split       (splitWhen)
+import           Data.List.Split       (split, whenElt)
 import           Data.Maybe            (fromMaybe)
 import           Data.String.Utils     (startswith)
 import qualified Data.Text             as T
@@ -30,6 +30,7 @@ data QuestionGroup = QuestionGroup {
     , questions :: [Question]
 }
 
+mapInd :: (a -> Char -> c) -> [a] -> [c]
 mapInd f l = zipWith f l ['a'..]
 
 group :: Int -> [a] -> [[a]]
@@ -38,6 +39,7 @@ group n l
   | n > 0 = take n l : group n (drop n l)
   | otherwise = error "Negative n"
 
+byteStringToString :: ByteString -> IO String
 byteStringToString s = do
     conv <- open "utf-8" Nothing
     return (T.unpack $ toUnicode conv s)
@@ -62,20 +64,24 @@ presentQuestion q = do
 listToQuestion :: [ByteString] -> Question
 listToQuestion (x:xs) = Question x xs 1
 
-listToQuestionGroups :: String -> [Question] -> QuestionGroup
-listToQuestionGroups d = QuestionGroup (pack d)
+listToQuestionGroups :: [[ByteString]] -> QuestionGroup
+listToQuestionGroups xs = QuestionGroup (head $ head xs) (map listToQuestion (tail xs))
+
+splitWhen :: (a -> Bool) -> [a] -> [[a]]
+splitWhen = split . whenElt
+
+questionGroup :: [ByteString] -> [[ByteString]]
+questionGroup (x:xs) = [x] : group 5 xs
 
 parseSections :: IO ByteString -> IO [QuestionGroup]
 parseSections bs =
     let nonEmptyString = filter (/= pack "")
         isSectionMarker = isPrefixOf (pack "###")
-        questionGroup = group 5
         allLines = fmap lines bs
         sections = fmap (filter (not . null) . splitWhen isSectionMarker) allLines
         groupedQuestionListBySection = fmap (map (questionGroup . nonEmptyString)) sections
-        l = listToQuestionGroups "easy" . map listToQuestion
         -- answers = last groupedQuestionListBySection
-    in fmap (map l . init) groupedQuestionListBySection
+    in fmap (map listToQuestionGroups . init) groupedQuestionListBySection
 
 doWhileM :: (a -> IO Bool) -> [a] -> IO ()
 doWhileM _ [] = return ()
@@ -91,5 +97,7 @@ libMain = do
     let easy = head sections
     let medium = sections !! 1
     let hard = sections !! 2
+    byteStringToString (difficulty easy) >>= putStrLn
+    putStrLn $ show $ length (questions hard)
     doWhileM presentQuestion (questions easy)
     return ()
