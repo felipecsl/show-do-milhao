@@ -5,7 +5,7 @@ module Lib
 import           Data.ByteString       (ByteString (..), concat, hGetContents,
                                         intercalate, isPrefixOf)
 import           Data.ByteString.Char8 (lines, pack, singleton, unpack)
-import           Data.Char             (ord)
+import           Data.Char             (digitToInt, ord)
 import           Data.List             (elemIndex)
 import           Data.List.Split       (splitWhen)
 import           Data.Maybe            (fromMaybe)
@@ -15,7 +15,8 @@ import           Data.Text.ICU.Convert (open, toUnicode)
 import qualified Data.Text.IO          as T
 import           Data.Word             (Word8 (..))
 import           Prelude               hiding (concat, lines)
-import           System.IO             (IOMode (..), openFile)
+import           System.IO             (BufferMode (..), IOMode (..),
+                                        hSetBuffering, openFile, stdin)
 
 data Question = Question {
       statement :: ByteString
@@ -48,7 +49,7 @@ presentQuestion q = do
     let maybeAnswer = elemIndex answr ['a'..]
         didAnswerCorrectly = maybeAnswer == Just correctAnswer
     if didAnswerCorrectly
-      then putStrLn "Certa resposta!"
+      then putStrLn "\nCerta resposta!\n"
       else putStrLn ("Resposta errada. Sua resposta foi " ++ [answr])
     return didAnswerCorrectly
 
@@ -78,6 +79,7 @@ takeWhileM m (x:xs) = do
 
 libMain :: IO ()
 libMain = do
+    hSetBuffering stdin NoBuffering
     h <- openFile "questions.txt" ReadMode
     bs <- hGetContents h
     let sections = parseSections bs
