@@ -8,7 +8,7 @@ import           Data.ByteString       (ByteString (..), concat, hGetContents,
 import           Data.ByteString.Char8 (lines, pack, singleton, unpack)
 import           Data.Char             (digitToInt, ord)
 import           Data.List             (elemIndex)
-import           Data.List.Split       (split, whenElt)
+import           Data.List.Split       (keepDelimsL, split, whenElt)
 import           Data.Maybe            (fromMaybe)
 import           Data.String.Utils     (startswith)
 import qualified Data.Text             as T
@@ -68,7 +68,7 @@ listToQuestionGroups :: [[ByteString]] -> QuestionGroup
 listToQuestionGroups xs = QuestionGroup (head $ head xs) (map listToQuestion (tail xs))
 
 splitWhen :: (a -> Bool) -> [a] -> [[a]]
-splitWhen = split . whenElt
+splitWhen = split . keepDelimsL . whenElt
 
 questionGroup :: [ByteString] -> [[ByteString]]
 questionGroup (x:xs) = [x] : group 5 xs
@@ -89,6 +89,10 @@ doWhileM m (x:xs) = do
     res <- m x
     when res $ doWhileM m xs
 
+printQuestionGroup g = do
+    byteStringToString (difficulty g) >>= putStrLn
+    doWhileM presentQuestion (questions g)
+
 libMain :: IO ()
 libMain = do
     hSetBuffering stdin NoBuffering
@@ -97,7 +101,5 @@ libMain = do
     let easy = head sections
     let medium = sections !! 1
     let hard = sections !! 2
-    byteStringToString (difficulty easy) >>= putStrLn
-    putStrLn $ show $ length (questions hard)
-    doWhileM presentQuestion (questions easy)
+    printQuestionGroup medium
     return ()
