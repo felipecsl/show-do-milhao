@@ -38,10 +38,7 @@ presentQuestion (q, correct, stop, wrong) = do
 
 -- Converts an array of strings (with 5 elements) into a Question object
 listToQuestion :: (Int, [ByteString]) -> Question
-listToQuestion a =
-    let ans = fst a
-        (x:xs) = snd a
-    in Question x xs ans
+listToQuestion (ans, x:xs) = Question x xs ans
 
 -- Builds a QuestionGroup based on a nested array of ByteStrings, where the head of each group
 -- is the header and the tail are the groups of questions (with 5 elements each)
