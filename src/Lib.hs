@@ -8,49 +8,14 @@ import           Data.ByteString       (ByteString (..), concat, hGetContents,
 import           Data.ByteString.Char8 (lines, pack, singleton, unpack)
 import           Data.Char             (digitToInt, ord)
 import           Data.List             (elemIndex)
-import           Data.List.Split       (keepDelimsL, split, whenElt)
 import           Data.Maybe            (fromMaybe)
 import           Data.String.Utils     (startswith)
-import qualified Data.Text             as T
-import           Data.Text.ICU.Convert (open, toUnicode)
-import qualified Data.Text.IO          as T
 import           Data.Word             (Word8 (..))
+import           DataTypes
 import           Prelude               hiding (lines)
 import           System.IO             (BufferMode (..), IOMode (..),
                                         hSetBuffering, openFile, stdin)
-
-data Question = Question {
-    statement :: ByteString
-  , options   :: [ByteString]
-  , answer    :: Int
-}
-
-data QuestionGroup = QuestionGroup {
-    difficulty :: ByteString
-  , questions  :: [Question]
-}
-
-type ProgramData = [QuestionGroup]
-
-mapIndChar :: (a -> Char -> b) -> [a] -> [b]
-mapIndChar f l = zipWith f l ['a'..]
-
-mapInd :: (a -> Int -> b) -> [a] -> [b]
-mapInd f l = zipWith f l [0..]
-
-group :: Int -> [a] -> [[a]]
-group _ [] = []
-group n l
-  | n > 0 = take n l : group n (drop n l)
-  | otherwise = error "Negative n"
-
-byteStringToString :: ByteString -> IO String
-byteStringToString s = do
-    conv <- open "utf-8" Nothing
-    return (T.unpack $ toUnicode conv s)
-
-byteStringToInt :: ByteString -> Int
-byteStringToInt s = read (unpack s) :: Int
+import           Utils
 
 -- Takes a question and the index of the answer (0, 1, 2 or 3)
 presentQuestion :: Question -> IO Bool
@@ -58,14 +23,12 @@ presentQuestion q = do
     let stmt = statement q
         opts = options q
         -- The answers are 1-indexed (instead of 0), so we need to subtract 1 to offset it
-        ans = answer q - 1
-        indexedOpts = mapIndChar (\x i -> Data.ByteString.concat ([singleton i] ++ [pack ") "] ++ [x])) opts
+        ans = answer q
     byteStringToString stmt >>= putStrLn
-    byteStringToString (intercalate (pack "\n") indexedOpts) >>= putStrLn
+    byteStringToString (intercalate (pack "\n") opts) >>= putStrLn
     putStrLn "Resposta? "
     answr <- getChar
-    let maybeAnswer = elemIndex answr ['a'..]
-        didAnswerCorrectly = maybeAnswer == Just ans
+    let didAnswerCorrectly = digitToInt answr == ans
     if didAnswerCorrectly
       then putStrLn "\nCerta resposta!\n"
       else putStrLn ("\nResposta errada. Sua resposta foi " ++ [answr])
@@ -83,12 +46,6 @@ listToQuestion a =
 listToQuestionGroups :: [Int] -> [[ByteString]] -> QuestionGroup
 listToQuestionGroups a xs = QuestionGroup (head $ head xs) (zipWith (curry listToQuestion) a (tail xs))
 
--- Split an array using the function for selecting the delimiter. The resulting array includes
--- the delimiter as the first item in the array. This is important because we need the headers for
--- each question group (Facil, Medio and Dificil)
-splitWhen :: (a -> Bool) -> [a] -> [[a]]
-splitWhen = split . keepDelimsL . whenElt
-
 -- This groups questions in lists of 5 elements, where:
 -- 1st item is the question statement
 -- items 2, 3, 4 and 5 are the question possible answers (a, b, c or d)
@@ -97,6 +54,8 @@ splitWhen = split . keepDelimsL . whenElt
 questionGroup :: [ByteString] -> [[ByteString]]
 questionGroup (x:xs) = [x] : group 5 xs
 
+-- Takes an array of answers and an array of sections with question groups and parses them into
+-- an array of question groups
 parseGroupsWithAnswers :: [Int] -> [[[ByteString]]] -> [QuestionGroup]
 parseGroupsWithAnswers a (x:xs) =
     let totalQuestions = length x
@@ -124,14 +83,6 @@ parseSections bs =
         sections = fmap (filter (not . null) . splitWhen isSectionMarker) allLines
         groupedQuestionListBySection = fmap (map (questionGroup . nonEmptyString)) sections
     in fmap buildProgramData groupedQuestionListBySection
-
-doWhileM :: (a -> IO Bool) -> [a] -> IO Bool
-doWhileM _ [] = return False
-doWhileM m (x:xs) = do
-    res <- m x
-    if res
-      then doWhileM m xs
-      else return False
 
 printQuestionGroup :: QuestionGroup -> IO Bool
 printQuestionGroup g = do
