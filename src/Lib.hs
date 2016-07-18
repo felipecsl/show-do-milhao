@@ -33,7 +33,7 @@ presentQuestion (q, correct, stop, wrong) = do
     let didAnswerCorrectly = digitToInt answr == ans
     if didAnswerCorrectly
       then putStrLn "\nCerta resposta!\n"
-      else putStrLn ("\nResposta errada. A resposta certa é " ++ show ans)
+      else putStrLn $ "\nResposta errada. A resposta certa é " ++ show ans
     return didAnswerCorrectly
 
 -- Converts an array of strings (with 5 elements) into a Question object
@@ -46,7 +46,7 @@ listToQuestion a =
 -- Builds a QuestionGroup based on a nested array of ByteStrings, where the head of each group
 -- is the header and the tail are the groups of questions (with 5 elements each)
 listToQuestionGroups :: [Int] -> [[ByteString]] -> QuestionGroup
-listToQuestionGroups a xs = QuestionGroup (head $ head xs) (zipWith (curry listToQuestion) a (tail xs))
+listToQuestionGroups a (x:xs) = QuestionGroup (head x) (zipWith (curry listToQuestion) a xs)
 
 -- This groups questions in lists of 5 elements, where:
 -- 1st item is the question statement
@@ -74,16 +74,14 @@ parseGroupsWithAnswers a (x:xs) =
 buildProgramData :: [[[ByteString]]] -> ProgramData
 buildProgramData xs =
     let answers = map byteStringToInt (tail $ Prelude.concat (last xs))
-        groups = parseGroupsWithAnswers answers (init xs)
-    in groups
+    in parseGroupsWithAnswers answers (init xs)
 
 -- Takes a ByteString with the input file contents and parse it into a ProgramData object
 parseSections :: ByteString -> IO ProgramData
 parseSections bs =
     let nonEmptyString = filter (/= pack "")
         isSectionMarker = isPrefixOf (pack "###")
-        allLines = lines bs
-        sections = filter (not . null) (splitWhen isSectionMarker allLines)
+        sections = filter (not . null) (splitWhen isSectionMarker (lines bs))
         groupedQuestionListBySection = map (questionGroup . nonEmptyString) sections
     in return (buildProgramData groupedQuestionListBySection)
 
