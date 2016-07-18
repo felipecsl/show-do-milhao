@@ -15,6 +15,7 @@ import           DataTypes
 import           Prelude               hiding (lines)
 import           System.IO             (BufferMode (..), IOMode (..),
                                         hSetBuffering, openFile, stdin)
+import           System.Random.Shuffle (shuffleM)
 import           Utils
 
 questionStatement :: ByteString -> Int -> IO String
@@ -92,7 +93,7 @@ parseSections bs =
 
 printQuestionGroup :: [Int] -> QuestionGroup -> IO Bool
 printQuestionGroup rs g = do
-    let qs = questions g
+    qs <- shuffleM $ questions g
     byteStringToString (difficulty g) >>= putStrLn
     doWhileM presentQuestion (zip qs rs)
 
@@ -107,7 +108,7 @@ libMain = do
     -- cada uma valendo mil reais cumulativos. A segunda, de 5 perguntas valendo R$ 10 mil
     -- cumulativos cada. A terceira, de 5 perguntas de R$100 mil reais cumulativos cada.
     -- A última pergunta valia R$ 1 milhão.
-    let rounds = [map (*1000) [1..5]] ++ [map (*1000) [10..50]] ++ [map (*1000) [100..500] ++ [1000000]]
+    let rounds = [map (*1000) [1..5]] ++ [map (*10000) [1..5]] ++ [map (*100000) [1..5] ++ [1000000]]
     -- We need to disable stdin buffering otherwise getChar won't work well
     hSetBuffering stdin NoBuffering
     openFile "questions.txt" ReadMode >>= hGetContents >>= parseSections >>= printQuestionGroups rounds
