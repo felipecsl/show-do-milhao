@@ -9,6 +9,8 @@ $ stack build
 $ stack exec showdomilhao-exe
 ```
 
+![screencast](https://raw.githubusercontent.com/felipecsl/show-do-milhao/master/screencast.gif)
+
 License
 --------
 
