@@ -13,6 +13,11 @@ data QuestionGroup = QuestionGroup {
   , questions  :: [Question]
 }
 
-type Rounds = [[Int]]
+-- Cash prizes for correct answer, stop playing and wrong answers, respectively
+data Prizes = Prizes {
+    correct :: [[Int]]
+  , stop    :: [[Int]]
+  , wrong   :: [[Int]]
+}
 
 type ProgramData = [QuestionGroup]

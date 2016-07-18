@@ -7,7 +7,7 @@ import           Data.ByteString       (ByteString (..), concat, hGetContents,
                                         intercalate, isPrefixOf)
 import           Data.ByteString.Char8 (lines, pack, singleton, unpack)
 import           Data.Char             (digitToInt, ord)
-import           Data.List             (elemIndex)
+import           Data.List             (elemIndex, zip4)
 import           Data.Maybe            (fromMaybe)
 import           Data.String.Utils     (startswith)
 import           Data.Word             (Word8 (..))
@@ -18,20 +18,16 @@ import           System.IO             (BufferMode (..), IOMode (..),
 import           System.Random.Shuffle (shuffleM)
 import           Utils
 
-questionStatement :: ByteString -> Int -> IO String
-questionStatement stmt amt = do
-    let fullStmt = pack $ "Pergunta valendo R$ " ++ show amt ++ ": "
-    byteStringToString $ Data.ByteString.concat (fullStmt : [stmt])
-
 -- Takes a question and how much it's worth
-presentQuestion :: (Question, Int) -> IO Bool
-presentQuestion (q, amt) = do
+presentQuestion :: (Question, Int, Int, Int) -> IO Bool
+presentQuestion (q, correct, stop, wrong) = do
     let stmt = statement q
         opts = options q
         -- The answers are 1-indexed (instead of 0), so we need to subtract 1 to offset it
         ans = answer q
-    questionStatement stmt amt >>= putStrLn
+    byteStringToString stmt >>= putStrLn
     byteStringToString (intercalate (pack "\n") opts) >>= putStrLn
+    putStrLn $ "Errar: R$ " ++ show wrong ++ ", Parar: R$ " ++ show stop ++ ", Acertar: R$ " ++ show correct
     putStrLn "Resposta? "
     answr <- getChar
     let didAnswerCorrectly = digitToInt answr == ans
@@ -91,16 +87,19 @@ parseSections bs =
         groupedQuestionListBySection = map (questionGroup . nonEmptyString) sections
     in return (buildProgramData groupedQuestionListBySection)
 
-printQuestionGroup :: [Int] -> QuestionGroup -> IO Bool
-printQuestionGroup rs g = do
+printQuestionGroup :: [Int] -> [Int] -> [Int] -> QuestionGroup -> IO Bool
+printQuestionGroup cs ss ws g = do
     qs <- shuffleM $ questions g
     byteStringToString (difficulty g) >>= putStrLn
-    doWhileM presentQuestion (zip qs rs)
+    doWhileM presentQuestion (zip4 qs cs ss ws)
 
-printQuestionGroups :: Rounds -> ProgramData -> IO ()
-printQuestionGroups (r:rs) (x:xs) = do
-    res <- printQuestionGroup r x
-    when res $ printQuestionGroups rs xs
+printQuestionGroups :: Prizes -> ProgramData -> IO ()
+printQuestionGroups p (x:xs) = do
+    let (c:cs) = correct p
+        (s:ss) = stop p
+        (w:ws) = wrong p
+    res <- printQuestionGroup c s w x
+    when res $ printQuestionGroups (Prizes cs ss ws) xs
 
 libMain :: IO ()
 libMain = do
@@ -108,7 +107,13 @@ libMain = do
     -- cada uma valendo mil reais cumulativos. A segunda, de 5 perguntas valendo R$ 10 mil
     -- cumulativos cada. A terceira, de 5 perguntas de R$100 mil reais cumulativos cada.
     -- A última pergunta valia R$ 1 milhão.
-    let rounds = [map (*1000) [1..5]] ++ [map (*10000) [1..5]] ++ [map (*100000) [1..5] ++ [1000000]]
+    let winRange = [1..5]
+        stopRange = [5, 10, 20, 30, 40]
+        errorRange = [2, 5, 10, 15, 20]
+        correctPrizes = [map (*1000) winRange] ++ [map (*10000) winRange] ++ [map (*100000) winRange] ++ [[1000000]]
+        stopPrizes = [map (*1000) [0..5]] ++ [map (*1000) stopRange] ++ [map (*10000) stopRange] ++ [[500000]]
+        errorPrizes = [map (*500) [0..4]] ++ [map (*1000) errorRange] ++ [map (*10000) errorRange] ++ [[0]]
+        prizes = Prizes correctPrizes stopPrizes errorPrizes
     -- We need to disable stdin buffering otherwise getChar won't work well
     hSetBuffering stdin NoBuffering
-    openFile "questions.txt" ReadMode >>= hGetContents >>= parseSections >>= printQuestionGroups rounds
+    openFile "questions.txt" ReadMode >>= hGetContents >>= parseSections >>= printQuestionGroups prizes
