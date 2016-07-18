@@ -8,6 +8,7 @@ import           Data.ByteString       (ByteString (..), concat, hGetContents,
                                         intercalate, isPrefixOf)
 import           Data.ByteString.Char8 (lines, pack, singleton, unpack)
 import           Data.Char             (digitToInt, ord)
+import           Data.Foldable         (traverse_)
 import           Data.List             (elemIndex, zip4)
 import           Data.Maybe            (fromMaybe)
 import           Data.String.Utils     (startswith)
@@ -15,12 +16,27 @@ import           Data.Word             (Word8 (..))
 import           DataTypes
 import           Prelude               hiding (lines)
 import           System.IO             (BufferMode (..), IOMode (..),
-                                        hSetBuffering, openFile, stdin)
+                                        hSetBuffering, openFile, stdin, stdout)
 import           System.Process        (system)
 import           System.Random.Shuffle (shuffleM)
 import           Utils
 
+-- Sleeps n seconds
+sleep :: Int -> IO ()
+sleep n = threadDelay (n * 1000000)
+
+makeSuspense :: IO ()
+makeSuspense = do
+    sleep 1
+    putStr "."
+
+presentPossibleAnswer :: ByteString -> IO ()
+presentPossibleAnswer opt = do
+    byteStringToString opt >>= putStrLn
+    threadDelay 1000000
+
 -- Takes a question and how much it's worth (for correct, stopping or wrong answer) and prints it
+-- Adds some sleeps around it to make everything more dramatic :)
 presentQuestion :: (Question, Int, Int, Int) -> IO Bool
 presentQuestion (q, correct, stop, wrong) = do
     let stmt = statement q
@@ -30,16 +46,18 @@ presentQuestion (q, correct, stop, wrong) = do
     -- Clear the terminal window before displaying the question statement
     system "clear"
     byteStringToString stmt >>= putStrLn
-    byteStringToString (intercalate (pack "\n") opts) >>= putStrLn
+    sleep 2
+    traverse_ presentPossibleAnswer opts
     putStrLn $ "Errar: R$ " ++ show wrong ++ ", Parar: R$ " ++ show stop ++ ", Acertar: R$ " ++ show correct
     putStrLn "Resposta? "
     answr <- getChar
+    putStr "\n."
+    traverse_ (const makeSuspense) [0..2]
     let didAnswerCorrectly = digitToInt answr == ans
     if didAnswerCorrectly
-      then putStrLn "\nCerta resposta!\n"
-      else putStrLn $ "\nResposta errada. A resposta certa é " ++ show ans
-    -- Sleep for 2 seconds
-    threadDelay 2000000
+      then putStrLn "RESPOSTA CERTA!\n"
+      else putStrLn $ "Errou. A resposta certa é " ++ show (opts !! (ans - 1))
+    sleep 2
     return didAnswerCorrectly
 
 -- Converts an array of strings (with 5 elements) into a Question object
@@ -117,4 +135,5 @@ libMain = do
         prizes = Prizes correctPrizes stopPrizes errorPrizes
     -- We need to disable stdin buffering otherwise getChar won't work well
     hSetBuffering stdin NoBuffering
+    hSetBuffering stdout NoBuffering
     openFile "questions.txt" ReadMode >>= hGetContents >>= parseSections >>= printQuestionGroups prizes
