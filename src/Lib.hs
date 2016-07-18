@@ -2,6 +2,7 @@ module Lib
     ( libMain
     ) where
 
+import           Control.Concurrent    (threadDelay)
 import           Control.Monad         (when)
 import           Data.ByteString       (ByteString (..), concat, hGetContents,
                                         intercalate, isPrefixOf)
@@ -15,6 +16,7 @@ import           DataTypes
 import           Prelude               hiding (lines)
 import           System.IO             (BufferMode (..), IOMode (..),
                                         hSetBuffering, openFile, stdin)
+import           System.Process        (system)
 import           System.Random.Shuffle (shuffleM)
 import           Utils
 
@@ -25,6 +27,8 @@ presentQuestion (q, correct, stop, wrong) = do
         opts = options q
         -- The answers are 1-indexed (instead of 0), so we need to subtract 1 to offset it
         ans = answer q
+    -- Clear the terminal window before displaying the question statement
+    system "clear"
     byteStringToString stmt >>= putStrLn
     byteStringToString (intercalate (pack "\n") opts) >>= putStrLn
     putStrLn $ "Errar: R$ " ++ show wrong ++ ", Parar: R$ " ++ show stop ++ ", Acertar: R$ " ++ show correct
@@ -34,6 +38,8 @@ presentQuestion (q, correct, stop, wrong) = do
     if didAnswerCorrectly
       then putStrLn "\nCerta resposta!\n"
       else putStrLn $ "\nResposta errada. A resposta certa é " ++ show ans
+    -- Sleep for 2 seconds
+    threadDelay 2000000
     return didAnswerCorrectly
 
 -- Converts an array of strings (with 5 elements) into a Question object

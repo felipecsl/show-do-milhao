@@ -23,6 +23,7 @@ library
                      , bytestring
                      , text-icu
                      , random-shuffle
+                     , process
   default-language:    Haskell2010
 
 executable showdomilhao-exe
