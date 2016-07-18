@@ -18,7 +18,7 @@ import           System.IO             (BufferMode (..), IOMode (..),
 import           System.Random.Shuffle (shuffleM)
 import           Utils
 
--- Takes a question and how much it's worth
+-- Takes a question and how much it's worth (for correct, stopping or wrong answer) and prints it
 presentQuestion :: (Question, Int, Int, Int) -> IO Bool
 presentQuestion (q, correct, stop, wrong) = do
     let stmt = statement q
