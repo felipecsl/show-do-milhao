@@ -17,21 +17,26 @@ import           System.IO             (BufferMode (..), IOMode (..),
                                         hSetBuffering, openFile, stdin)
 import           Utils
 
--- Takes a question and the index of the answer (0, 1, 2 or 3)
-presentQuestion :: Question -> IO Bool
-presentQuestion q = do
+questionStatement :: ByteString -> Int -> IO String
+questionStatement stmt amt = do
+    let fullStmt = pack $ "Pergunta valendo R$ " ++ show amt ++ ": "
+    byteStringToString $ Data.ByteString.concat (fullStmt : [stmt])
+
+-- Takes a question and how much it's worth
+presentQuestion :: (Question, Int) -> IO Bool
+presentQuestion (q, amt) = do
     let stmt = statement q
         opts = options q
         -- The answers are 1-indexed (instead of 0), so we need to subtract 1 to offset it
         ans = answer q
-    byteStringToString stmt >>= putStrLn
+    questionStatement stmt amt >>= putStrLn
     byteStringToString (intercalate (pack "\n") opts) >>= putStrLn
     putStrLn "Resposta? "
     answr <- getChar
     let didAnswerCorrectly = digitToInt answr == ans
     if didAnswerCorrectly
       then putStrLn "\nCerta resposta!\n"
-      else putStrLn ("\nResposta errada. Sua resposta foi " ++ [answr])
+      else putStrLn ("\nResposta errada. A resposta certa é " ++ show ans)
     return didAnswerCorrectly
 
 -- Converts an array of strings (with 5 elements) into a Question object
@@ -58,7 +63,8 @@ questionGroup (x:xs) = [x] : group 5 xs
 -- an array of question groups
 parseGroupsWithAnswers :: [Int] -> [[[ByteString]]] -> [QuestionGroup]
 parseGroupsWithAnswers a (x:xs) =
-    let totalQuestions = length x
+    -- Need to subtract one for the section header
+    let totalQuestions = length x - 1
         thisGroup = listToQuestionGroups (take totalQuestions a) x
         remainder = parseGroupsWithAnswers (drop totalQuestions a) xs
     in thisGroup : remainder
@@ -75,29 +81,33 @@ buildProgramData xs =
     in groups
 
 -- Takes a ByteString with the input file contents and parse it into a ProgramData object
-parseSections :: IO ByteString -> IO ProgramData
+parseSections :: ByteString -> IO ProgramData
 parseSections bs =
     let nonEmptyString = filter (/= pack "")
         isSectionMarker = isPrefixOf (pack "###")
-        allLines = fmap lines bs
-        sections = fmap (filter (not . null) . splitWhen isSectionMarker) allLines
-        groupedQuestionListBySection = fmap (map (questionGroup . nonEmptyString)) sections
-    in fmap buildProgramData groupedQuestionListBySection
+        allLines = lines bs
+        sections = filter (not . null) (splitWhen isSectionMarker allLines)
+        groupedQuestionListBySection = map (questionGroup . nonEmptyString) sections
+    in return (buildProgramData groupedQuestionListBySection)
 
-printQuestionGroup :: QuestionGroup -> IO Bool
-printQuestionGroup g = do
+printQuestionGroup :: [Int] -> QuestionGroup -> IO Bool
+printQuestionGroup rs g = do
+    let qs = questions g
     byteStringToString (difficulty g) >>= putStrLn
-    doWhileM presentQuestion (questions g)
+    doWhileM presentQuestion (zip qs rs)
 
-printQuestionGroups :: ProgramData -> IO ()
-printQuestionGroups pd = do
-    let (x:xs) = pd
-    res <- printQuestionGroup x
-    when res $ printQuestionGroups xs
+printQuestionGroups :: Rounds -> ProgramData -> IO ()
+printQuestionGroups (r:rs) (x:xs) = do
+    res <- printQuestionGroup r x
+    when res $ printQuestionGroups rs xs
 
 libMain :: IO ()
 libMain = do
+    -- O programa consistia em três rodadas e uma pergunta final: a primeira continha 5 perguntas,
+    -- cada uma valendo mil reais cumulativos. A segunda, de 5 perguntas valendo R$ 10 mil
+    -- cumulativos cada. A terceira, de 5 perguntas de R$100 mil reais cumulativos cada.
+    -- A última pergunta valia R$ 1 milhão.
+    let rounds = [map (*1000) [1..5]] ++ [map (*1000) [10..50]] ++ [map (*1000) [100..500] ++ [1000000]]
     -- We need to disable stdin buffering otherwise getChar won't work well
     hSetBuffering stdin NoBuffering
-    let file = openFile "questions.txt" ReadMode >>= hGetContents
-    parseSections file >>= printQuestionGroups
+    openFile "questions.txt" ReadMode >>= hGetContents >>= parseSections >>= printQuestionGroups rounds

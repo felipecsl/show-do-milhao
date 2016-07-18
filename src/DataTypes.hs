@@ -13,4 +13,6 @@ data QuestionGroup = QuestionGroup {
   , questions  :: [Question]
 }
 
+type Rounds = [[Int]]
+
 type ProgramData = [QuestionGroup]

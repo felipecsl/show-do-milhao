@@ -28,7 +28,7 @@ byteStringToInt :: ByteString -> Int
 byteStringToInt s = read (unpack s) :: Int
 
 doWhileM :: (a -> IO Bool) -> [a] -> IO Bool
-doWhileM _ [] = return False
+doWhileM _ [] = return True
 doWhileM m (x:xs) = do
     res <- m x
     if res
